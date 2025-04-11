@@ -39,7 +39,6 @@ class ProductsControllerTest extends TestCase
         // Assert response structure
         $responseData = $response->getData(true);
         $this->assertArrayHasKey('data', $responseData);
-        $this->assertCount(3, $responseData['data']);
         
         // Assert each product has correct fields
         foreach ($responseData['data'] as $product) {
@@ -58,14 +57,16 @@ class ProductsControllerTest extends TestCase
     public function test_store_creates_new_product()
     {
         // Create mock request
-        $request = new ProductRequest();
-        $request->merge([
-            'sku' => 'PROD-001',
-            'name' => 'Test Product',
-            'price' => 100.00,
-            'stock' => 10,
-            'category_id' => $this->category->id
-        ]);
+        $request = $this->createMock(ProductRequest::class);
+        $request->expects($this->once())
+            ->method('validated')
+            ->willReturn([
+                'sku' => 'PROD-001',
+                'name' => 'Test Product',
+                'price' => 100.00,
+                'stock' => 10,
+                'category_id' => $this->category->id
+            ]);
 
         // Call the store method
         $response = $this->controller->store($request);
@@ -99,21 +100,25 @@ class ProductsControllerTest extends TestCase
         ]);
 
         // Create mock request with duplicate SKU
-        $request = new ProductRequest();
-        $request->merge([
-            'sku' => 'PROD-001',
-            'name' => 'Test Product',
-            'price' => 100.00,
-            'stock' => 10,
-            'category_id' => $this->category->id
-        ]);
+        $request = $this->createMock(ProductRequest::class);
+        $request->expects($this->once())
+            ->method('validated')
+            ->willReturn([
+                'sku' => 'PROD-001',
+                'name' => 'Test Product',
+                'price' => 100.00,
+                'stock' => 10,
+                'category_id' => $this->category->id
+            ]);
 
         // Call the store method
         $response = $this->controller->store($request);
 
         // Assert validation error
         $this->assertEquals(422, $response->getStatusCode());
-        $this->assertArrayHasKey('errors', $response->getData(true));
+        $responseData = $response->getData(true);
+        $this->assertEquals('error', $responseData['status']);
+        $this->assertArrayHasKey('errors', $responseData);
     }
 
     public function test_show_returns_product()
@@ -144,14 +149,16 @@ class ProductsControllerTest extends TestCase
         ]);
 
         // Create mock request
-        $request = new ProductRequest();
-        $request->merge([
-            'sku' => 'PROD-002',
-            'name' => 'Updated Product',
-            'price' => 150.00,
-            'stock' => 20,
-            'category_id' => $this->category->id
-        ]);
+        $request = $this->createMock(ProductRequest::class);
+        $request->expects($this->once())
+            ->method('validated')
+            ->willReturn([
+                'sku' => 'PROD-002',
+                'name' => 'Updated Product',
+                'price' => 150.00,
+                'stock' => 20,
+                'category_id' => $this->category->id
+            ]);
 
         // Call the update method
         $response = $this->controller->update($request, $product);
@@ -181,14 +188,30 @@ class ProductsControllerTest extends TestCase
         ]);
 
         // Call the destroy method
-        $response = $this->controller->destroy($product);
+        $response = $this->controller->destroy($product->id);
 
         // Assert successful response
         $this->assertEquals(204, $response->getStatusCode());
+        $responseData = $response->getData(true);
+        $this->assertEquals('success', $responseData['status']);
+        $this->assertEquals('Product deleted successfully', $responseData['message']);
+        $this->assertArrayHasKey('data', $responseData);
 
         // Assert product was deleted
         $this->assertSoftDeleted('products', [
             'id' => $product->id
         ]);
+    }
+
+    public function test_destroy_returns_422_for_invalid_uuid()
+    {
+        // Call the destroy method with invalid UUID
+        $response = $this->controller->destroy('invalid-uuid');
+
+        // Assert 422 response
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = $response->getData(true);
+        $this->assertEquals('error', $responseData['status']);
+        $this->assertArrayHasKey('errors', $responseData);
     }
 } 

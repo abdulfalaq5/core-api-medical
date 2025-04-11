@@ -613,10 +613,34 @@
                 ],
                 "responses": {
                     "204": {
-                        "description": "Product deleted successfully"
+                        "description": "Product deleted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product deleted successfully"
+                                        },
+                                        "data": {
+                                            "type": "null",
+                                            "example": null
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "404": {
                         "description": "Product not found"
+                    },
+                    "422": {
+                        "description": "Invalid UUID format"
                     },
                     "401": {
                         "description": "Unauthorized"

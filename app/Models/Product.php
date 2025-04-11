@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 /**
  * @OA\Schema(
@@ -64,9 +65,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Product extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasUuids;
 
     protected $fillable = [
+        'id',
         'sku',
         'name',
         'stock',
@@ -74,6 +76,20 @@ class Product extends Model
         'category_id'
     ];
 
+    protected $hidden = [
+        'created_at',
+        'updated_at',
+        'deleted_at'
+    ];
+
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime'
+    ];
+
+    protected $table = 'products';
+    
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -86,11 +102,11 @@ class Product extends Model
 
     public function getCategoryIdAttribute()
     {
-        return $this->category()->first()->id;
+        return $this->attributes['category_id'] ?? null;
     }
 
     public function getCategoryNameAttribute()
     {
-        return $this->category()->first()->name;
+        return $this->category ? $this->category->name : null;
     }
 } 

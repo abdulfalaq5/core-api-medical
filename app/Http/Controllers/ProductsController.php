@@ -7,10 +7,8 @@ use App\Models\Product;
 use App\Http\Requests\ProductRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
 use App\Traits\ApiResponse;
-
+use Illuminate\Support\Str;
 /**
  * @OA\Tag(
  *     name="Products",
@@ -69,15 +67,7 @@ class ProductsController extends Controller
                 ];
             });
             
-            return $this->successResponse([
-                'data' => $formattedProducts,
-                'meta' => [
-                    'current_page' => $products->currentPage(),
-                    'last_page' => $products->lastPage(),
-                    'per_page' => $products->perPage(),
-                    'total' => $products->total()
-                ]
-            ]);
+            return $this->successResponse($formattedProducts);
         } catch (\Exception $e) {
             Log::error('Error fetching products: ' . $e->getMessage());
             return $this->errorResponse('Failed to fetch products', 500);
@@ -128,8 +118,14 @@ class ProductsController extends Controller
     public function store(ProductRequest $request)
     {
         try {
-            DB::beginTransaction();
             $validated = $request->validated();
+
+            // Check for duplicate SKU
+            if (Product::where('sku', $validated['sku'])->whereNull('deleted_at')->exists()) {
+                return $this->errorResponse(['sku' => ['SKU already exists']], 422);
+            }
+
+            DB::beginTransaction();
             $product = Product::create($validated);
             $product->load('category');
             
@@ -310,11 +306,20 @@ class ProductsController extends Controller
      *     ),
      *     @OA\Response(
      *         response=204,
-     *         description="Product deleted successfully"
+     *         description="Product deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Product deleted successfully"),
+     *             @OA\Property(property="data", type="null", example=null)
+     *         )
      *     ),
      *     @OA\Response(
      *         response=404,
      *         description="Product not found"
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Invalid UUID format"
      *     ),
      *     @OA\Response(
      *         response=401,
@@ -322,15 +327,26 @@ class ProductsController extends Controller
      *     )
      * )
      */
-    public function destroy(Product $product)
+
+    public function destroy($id)
     {
         try {
-            DB::beginTransaction();
+            // Validate UUID format
+            if (!Str::isUuid($id)) {
+                return $this->errorResponse(['id' => ['Invalid UUID format']], 422);
+            }
+
+            // Find the product
+            $product = Product::find($id);
+            if (!$product) {
+                return $this->errorResponse('Product not found', 404);
+            }
+
+            // Delete the product
             $product->delete();
-            DB::commit();
+
             return $this->successResponse(null, 'Product deleted successfully', 204);
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error deleting product: ' . $e->getMessage());
             return $this->errorResponse('Failed to delete product', 500);
         }
