@@ -680,7 +680,7 @@
                         }
                     },
                     {
-                        "name": "price.start",
+                        "name": "price_start",
                         "in": "query",
                         "description": "Filter by minimum price",
                         "required": false,
@@ -690,7 +690,7 @@
                         }
                     },
                     {
-                        "name": "price.end",
+                        "name": "price_end",
                         "in": "query",
                         "description": "Filter by maximum price",
                         "required": false,
@@ -700,7 +700,7 @@
                         }
                     },
                     {
-                        "name": "stock.start",
+                        "name": "stock_start",
                         "in": "query",
                         "description": "Filter by minimum stock",
                         "required": false,
@@ -709,7 +709,7 @@
                         }
                     },
                     {
-                        "name": "stock.end",
+                        "name": "stock_end",
                         "in": "query",
                         "description": "Filter by maximum stock",
                         "required": false,
@@ -718,7 +718,7 @@
                         }
                     },
                     {
-                        "name": "category.id",
+                        "name": "category_id",
                         "in": "query",
                         "description": "Filter by category ID (comma-separated values)",
                         "required": false,
@@ -727,7 +727,7 @@
                         }
                     },
                     {
-                        "name": "category.name",
+                        "name": "category_name",
                         "in": "query",
                         "description": "Filter by category name using LIKE search (comma-separated values)",
                         "required": false,

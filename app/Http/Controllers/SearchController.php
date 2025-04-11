@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Product;
-use App\Traits\ApiResponse;
+use App\Traits\ApiSearchResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Validator;
  */
 class SearchController extends Controller
 {
-    use ApiResponse;
+    use ApiSearchResponse;
 
     /**
      * @OA\Get(
@@ -43,35 +43,35 @@ class SearchController extends Controller
      *         )
      *     ),
      *     @OA\Parameter(
-     *         name="price.start",
+     *         name="price_start",
      *         in="query",
      *         description="Filter by minimum price",
      *         required=false,
      *         @OA\Schema(type="number", format="float")
      *     ),
      *     @OA\Parameter(
-     *         name="price.end",
+     *         name="price_end",
      *         in="query",
      *         description="Filter by maximum price",
      *         required=false,
      *         @OA\Schema(type="number", format="float")
      *     ),
      *     @OA\Parameter(
-     *         name="stock.start",
+     *         name="stock_start",
      *         in="query",
      *         description="Filter by minimum stock",
      *         required=false,
      *         @OA\Schema(type="integer")
      *     ),
      *     @OA\Parameter(
-     *         name="stock.end",
+     *         name="stock_end",
      *         in="query",
      *         description="Filter by maximum stock",
      *         required=false,
      *         @OA\Schema(type="integer")
      *     ),
      *     @OA\Parameter(
-     *         name="category.id",
+     *         name="category_id",
      *         in="query",
      *         description="Filter by category ID (comma-separated values)",
      *         required=false,
@@ -80,7 +80,7 @@ class SearchController extends Controller
      *         )
      *     ),
      *     @OA\Parameter(
-     *         name="category.name",
+     *         name="category_name",
      *         in="query",
      *         description="Filter by category name using LIKE search (comma-separated values)",
      *         required=false,
@@ -157,17 +157,17 @@ class SearchController extends Controller
         try {
             // Get query parameters
             $queryParams = $request->query();
-            Log::info($queryParams);
+            
             // Process array parameters from comma-separated strings
             $arrayParams = [
                 'sku' => [],
                 'name' => [],
-                'category.id' => [],
-                'category.name' => []
+                'category_id' => [],
+                'category_name' => []
             ];
 
             foreach ($arrayParams as $param => $default) {
-                if (isset($queryParams[$param])) {
+                if (isset($queryParams[$param]) && !empty($queryParams[$param])) {
                     $values = explode(',', $queryParams[$param]);
                     $arrayParams[$param] = array_filter($values, function($value) {
                         return !empty(trim($value));
@@ -177,6 +177,30 @@ class SearchController extends Controller
 
             // Merge array parameters with request data
             $request->merge($arrayParams);
+
+            // Handle dot notation parameters
+            if ($request->has('price.start')) {
+                $request->merge(['price_start' => floatval($request->input('price.start'))]);
+            }
+            if ($request->has('price.end')) {
+                $request->merge(['price_end' => floatval($request->input('price.end'))]);
+            }
+            if ($request->has('stock.start')) {
+                $request->merge(['stock_start' => intval($request->input('stock.start'))]);
+            }
+            if ($request->has('stock.end')) {
+                $request->merge(['stock_end' => intval($request->input('stock.end'))]);
+            }
+            if ($request->has('category.id')) {
+                $request->merge(['category_id' => [$request->input('category.id')]]);
+            }
+
+            // Remove dot notation parameters to avoid confusion
+            $request->offsetUnset('price.start');
+            $request->offsetUnset('price.end');
+            $request->offsetUnset('stock.start');
+            $request->offsetUnset('stock.end');
+            $request->offsetUnset('category.id');
 
             // Validate input
             $validator = Validator::make($request->all(), [
@@ -188,9 +212,9 @@ class SearchController extends Controller
                 'price_end' => 'sometimes|numeric|min:0|gte:price_start',
                 'stock_start' => 'sometimes|integer|min:0',
                 'stock_end' => 'sometimes|integer|min:0|gte:stock_start',
-                'category_id' => 'sometimes',
+                'category_id' => 'sometimes|array',
                 'category_id.*' => 'uuid|exists:categories,id',
-                'category_name' => 'sometimes',
+                'category_name' => 'sometimes|array',
                 'category_name.*' => 'string',
                 'page' => 'sometimes|integer|min:1',
                 'size' => 'sometimes|integer|min:1|max:100'
@@ -216,6 +240,9 @@ class SearchController extends Controller
             $this->applyCategoryIdFilter($query, $request);
             $this->applyCategoryNameFilter($query, $request);
 
+            // Sort by name to ensure consistent order
+            $query->orderBy('name');
+
             // Paginate results
             $perPage = min($request->input('size', 10), 100); // Limit max page size to 100
             $currentPage = $request->input('page', 1);
@@ -224,14 +251,15 @@ class SearchController extends Controller
             // Format response
             $formattedProducts = $this->formatProducts($products);
 
-            return $this->successResponse([
+            // Return response in the expected format
+            return response()->json([
                 'data' => $formattedProducts,
                 'paging' => [
                     'size' => $products->perPage(),
                     'total' => $products->total(),
                     'current' => $products->currentPage()
                 ]
-            ]);
+            ], 200);
 
         } catch (\Exception $e) {
             Log::error('Error in product search: ' . $e->getMessage());
@@ -268,14 +296,20 @@ class SearchController extends Controller
      */
     private function applyPriceFilter($query, $request)
     {
-        if ($request->has('price.start') || $request->has('price_start')) {
-            $priceStart = $request->input('price.start', $request->input('price_start'));
+        // Handle both dot notation and underscore parameters
+        $priceStart = $request->input('price.start', $request->input('price_start'));
+        $priceEnd = $request->input('price.end', $request->input('price_end'));
+
+        if (!empty($priceStart)) {
+            $priceStart = floatval($priceStart);
             $query->where('price', '>=', $priceStart);
         }
-        if ($request->has('price.end') || $request->has('price_end')) {
-            $priceEnd = $request->input('price.end', $request->input('price_end'));
+        if (!empty($priceEnd)) {
+            $priceEnd = floatval($priceEnd);
             $query->where('price', '<=', $priceEnd);
         }
+
+        Log::info('Price filter:', ['priceStart' => $priceStart, 'priceEnd' => $priceEnd]);
     }
 
     /**
@@ -283,13 +317,11 @@ class SearchController extends Controller
      */
     private function applyStockFilter($query, $request)
     {
-        if ($request->has('stock.start') || $request->has('stock_start')) {
-            $stockStart = $request->input('stock.start', $request->input('stock_start'));
-            $query->where('stock', '>=', $stockStart);
+        if ($request->has('stock_start')) {
+            $query->where('stock', '>=', $request->input('stock_start'));
         }
-        if ($request->has('stock.end') || $request->has('stock_end')) {
-            $stockEnd = $request->input('stock.end', $request->input('stock_end'));
-            $query->where('stock', '<=', $stockEnd);
+        if ($request->has('stock_end')) {
+            $query->where('stock', '<=', $request->input('stock_end'));
         }
     }
 
@@ -298,9 +330,8 @@ class SearchController extends Controller
      */
     private function applyCategoryIdFilter($query, $request)
     {
-        if ($request->has('category.id') && !empty($request->input('category.id')) || $request->has('category_id') && !empty($request->input('category_id'))) {
-            $categoryIds = explode(',', $request->input('category_id'));
-            $query->whereIn('category_id', $categoryIds);
+        if ($request->has('category_id') && !empty($request->input('category_id'))) {
+            $query->whereIn('category_id', $request->input('category_id'));
         }
     }
 
@@ -309,11 +340,10 @@ class SearchController extends Controller
      */
     private function applyCategoryNameFilter($query, $request)
     {
-        if ($request->has('category.name') && !empty($request->input('category.name')) || $request->has('category_name') && !empty($request->input('category_name'))) {
-            $categoryNames = explode(',', $request->input('category_name'));
-            $query->whereHas('category', function ($q) use ($categoryNames) {
-                $q->where(function ($subQuery) use ($categoryNames) {
-                    foreach ($categoryNames as $name) {
+        if ($request->has('category_name') && !empty($request->input('category_name'))) {
+            $query->whereHas('category', function ($q) use ($request) {
+                $q->where(function ($subQuery) use ($request) {
+                    foreach ($request->input('category_name') as $name) {
                         $subQuery->orWhere('name', 'LIKE', "%{$name}%");
                     }
                 });
@@ -339,6 +369,6 @@ class SearchController extends Controller
                 ],
                 'createdAt' => $product->created_at->timestamp * 1000
             ];
-        });
+        })->toArray();
     }
 }
