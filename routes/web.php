@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\ProductsController;
+use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -19,6 +20,7 @@ Route::middleware(['web'])->prefix('api')->group(function () {
     Route::middleware('api.key')->group(function () {
         Route::apiResource('categories', CategoriesController::class);
         Route::apiResource('products', ProductsController::class);
+        Route::get('/search', [SearchController::class, 'search']);
     });
 });
 

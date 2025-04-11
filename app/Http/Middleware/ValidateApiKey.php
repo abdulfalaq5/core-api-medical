@@ -14,7 +14,7 @@ class ValidateApiKey
             if ($token) {
                 $token = str_replace('Bearer ', '', $token);
             }
-            Log::info($token);
+            
             if (!$token) {
                 return response()->json(['message' => 'Token not provided'], 401);
             }
