@@ -97,6 +97,21 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        'pgsql_query' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_QUERY_URL'),
+            'host' => env('DB_QUERY_HOST', '127.0.0.1'),
+            'port' => env('DB_QUERY_PORT', '5432'),
+            'database' => env('DB_QUERY_DATABASE', 'laravel'),
+            'username' => env('DB_QUERY_USERNAME', 'root'),
+            'password' => env('DB_QUERY_PASSWORD', ''),
+            'charset' => env('DB_QUERY_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

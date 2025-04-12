@@ -11,7 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('categories', function (Blueprint $table) {
+        Schema::connection('pgsql')->create('categories', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->string('name');
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index('name');
+        });
+
+        Schema::connection('pgsql_query')->create('categories', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('name');
             $table->timestamps();
@@ -26,6 +35,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('categories');
+        Schema::connection('pgsql')->dropIfExists('categories');
+        Schema::connection('pgsql_query')->dropIfExists('categories');
     }
 };

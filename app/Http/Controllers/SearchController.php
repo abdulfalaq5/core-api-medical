@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Product;
+use App\Models\ProductSearch;
 use App\Traits\ApiSearchResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -230,7 +230,7 @@ class SearchController extends Controller
             }
 
             // Build query
-            $query = Product::with('category');
+            $query = ProductSearch::with('category');
 
             // Apply filters
             $this->applySkuFilter($query, $request);

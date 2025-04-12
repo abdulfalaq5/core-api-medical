@@ -9,7 +9,7 @@ use App\Http\Requests\CategoryRequest;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-
+use App\Helpers\RabbitMQProducer;
 /**
  * @OA\Tag(
  *     name="Categories",
@@ -110,7 +110,19 @@ class CategoriesController extends Controller
             $category = Category::create([
                 'name' => $request->name
             ]);
-            
+
+            // Publish create message to RabbitMQ
+            RabbitMQProducer::publish('data_sync', [
+                'action' => 'create',
+                'table' => 'categories',
+                'data' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'created_at' => $category->created_at,
+                    'updated_at' => $category->updated_at
+                ]
+            ]);
+
             DB::commit();
             return $this->successResponse([
                 'id' => $category->id,
@@ -169,7 +181,6 @@ class CategoriesController extends Controller
     public function update(CategoryRequest $request, $id)
     {
         try {
-
             $category = Category::find($id);
             if (!$category) {
                 return $this->errorResponse('Category not found', 404);
@@ -193,7 +204,19 @@ class CategoriesController extends Controller
             $category->update([
                 'name' => $request->name
             ]);
-            
+
+            // Publish update message to RabbitMQ
+            RabbitMQProducer::publish('data_sync', [
+                'action' => 'update',
+                'table' => 'categories',
+                'data' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'created_at' => $category->created_at,
+                    'updated_at' => $category->updated_at
+                ]
+            ]);
+
             DB::commit();
             return $this->successResponse([
                 'data' => [
@@ -250,7 +273,13 @@ class CategoriesController extends Controller
             DB::beginTransaction();
             $category->delete();
             DB::commit();
-            
+            RabbitMQProducer::publish('data_sync', [
+                'action' => 'delete',
+                'table' => 'categories',
+                'data' => [
+                    'id' => $category->id
+                ]
+            ]);
             return response()->json(null, 204);
         } catch (\Exception $e) {
             DB::rollBack();

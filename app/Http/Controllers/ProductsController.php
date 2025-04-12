@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Traits\ApiResponse;
 use Illuminate\Support\Str;
+use App\Helpers\RabbitMQProducer;
 /**
  * @OA\Tag(
  *     name="Products",
@@ -141,6 +142,22 @@ class ProductsController extends Controller
                 ],
                 'createdAt' => toMilliseconds($product->created_at)
             ];
+
+            // Publish create message to RabbitMQ
+            RabbitMQProducer::publish('data_sync', [
+                'action' => 'create',
+                'table' => 'products',
+                'data' => [
+                    'id' => $product->id,
+                    'sku' => $product->sku,
+                    'name' => $product->name,
+                    'price' => $product->price,
+                    'stock' => $product->stock,
+                    'category_id' => $product->category_id,
+                    'created_at' => $product->created_at,
+                    'updated_at' => $product->updated_at
+                ]
+            ]);
             
             DB::commit();
             return $this->successResponse($formattedProduct, 'Product created successfully', 201);
@@ -282,6 +299,22 @@ class ProductsController extends Controller
                 ],
                 'createdAt' => toMilliseconds($product->created_at)
             ];
+
+            // Publish update message to RabbitMQ
+            RabbitMQProducer::publish('data_sync', [
+                'action' => 'update',
+                'table' => 'products',
+                'data' => [
+                    'id' => $product->id,
+                    'sku' => $product->sku,
+                    'name' => $product->name,
+                    'price' => $product->price,
+                    'stock' => $product->stock,
+                    'category_id' => $product->category_id,
+                    'created_at' => $product->created_at,
+                    'updated_at' => $product->updated_at
+                ]
+            ]);
             
             DB::commit();
             return $this->successResponse($formattedProduct, 'Product updated successfully');
@@ -344,7 +377,13 @@ class ProductsController extends Controller
 
             // Delete the product
             $product->delete();
-
+            RabbitMQProducer::publish('data_sync', [
+                'action' => 'delete',
+                'table' => 'products',
+                'data' => [
+                    'id' => $product->id
+                ]
+            ]);
             return $this->successResponse(null, 'Product deleted successfully', 204);
         } catch (\Exception $e) {
             Log::error('Error deleting product: ' . $e->getMessage());
